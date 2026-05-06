@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  journalEntries   JournalEntry[]
+  surveyAttempts   SurveyAttempt[]
+
+  @@map("users")
+}
+
+model JournalEntry {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  content        String   @db.Text
+  sentimentScore Float    @map("sentiment_score")
+  sentimentLabel String   @map("sentiment_label")
+  primaryEmotion      String   @default("neutral") @map("primary_emotion")
+  primaryIntensity    Float    @default(0.5) @map("primary_intensity")
+  emotionProfile      Json     @default("{}") @map("emotion_profile")
+  problemLevel        Float    @default(0) @map("problem_level")
+  suggestPsychologist Boolean  @default(false) @map("suggest_psychologist")
+  adviceFromModel     String?  @map("advice_from_model") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("journal_entries")
+}
+
+model SurveyAttempt {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  surveyKey String   @map("survey_key")
+  answers   Json
+  score     Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, surveyKey, createdAt(sort: Desc)])
+  @@map("survey_attempts")
+}
+
+/// Точка на карте: еда, тихое место, навигация и т.д.
+enum CampusMarkerCategory {
+  QUIET
+  FOOD
+  STUDY
+  RELAX
+  SERVICE
+  OTHER
+}
+
+model Building {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  /** Памятка адреса/входа, без претензии на официальный реестр */
+  addressNote String?  @map("address_note") @db.Text
+  /** Приблизительные координаты для метки на карте (можно уточнить позже). */
+  lat         Float?   @map("lat")
+  lng         Float?   @map("lng")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  floors  BuildingFloor[]
+  markers CampusMarker[]
+
+  @@map("buildings")
+}
+
+/** Этаж здания: привязка картинки со схемой (URL или путь к статике позже). */
+model BuildingFloor {
+  id           String   @id @default(uuid())
+  buildingId   String   @map("building_id")
+  /** 0 — условно «первый уровень»; договоритесь в записке, что значит 0. */
+  levelIndex   Int      @map("level_index")
+  label        String?
+  planImageUrl String?  @map("plan_image_url") @db.Text
+  sortOrder    Int      @default(0) @map("sort_order")
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([buildingId, levelIndex])
+  @@index([buildingId])
+  @@map("building_floors")
+}
+
+model CampusMarker {
+  id          String               @id @default(uuid())
+  buildingId  String?              @map("building_id")
+  category    CampusMarkerCategory
+  title       String
+  description String?              @db.Text
+  lat         Float
+  lng         Float
+  sortOrder   Int                  @default(0) @map("sort_order")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+
+  @@index([buildingId])
+  @@index([category])
+  @@map("campus_markers")
+}
