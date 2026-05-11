@@ -14,7 +14,7 @@ export function createAuthGuard(tokenService: ITokenService) {
         throw new UnauthorizedError("Требуется авторизация");
       }
       const payload = tokenService.verify(raw);
-      req.auth = { userId: payload.sub, email: payload.email };
+      req.auth = { userId: payload.sub, email: payload.email, role: payload.role };
       next();
     } catch (e) {
       next(e);

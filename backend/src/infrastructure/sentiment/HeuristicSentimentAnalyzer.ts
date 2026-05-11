@@ -1,7 +1,7 @@
 import { finalizeAnalysis } from "../../domain/journal/analysisNormalize.js";
 import type { EmotionProfile } from "../../domain/journal/JournalAnalysisResult.js";
 import type { PrimaryEmotion } from "../../domain/journal/emotions.js";
-import type { ISentimentAnalyzer } from "../../domain/services/ISentimentAnalyzer.js";
+import type { ISentimentAnalyzer, JournalAnalysisInput } from "../../domain/services/ISentimentAnalyzer.js";
 import { textMayIndicateCrisis } from "../../application/safety/crisisLanguage.js";
 
 const RULES: Array<{ re: RegExp; emotion: PrimaryEmotion; w: number }> = [
@@ -64,13 +64,19 @@ function scoreAndProblem(primary: PrimaryEmotion, maxW: number): { score: number
 
 /** Локально, без сети. Для продакшена с богатой разметкой используйте SENTIMENT_PROVIDER=openai. */
 export class HeuristicSentimentAnalyzer implements ISentimentAnalyzer {
-  async analyze(text: string) {
+  async analyze(input: string | JournalAnalysisInput) {
+    const text = typeof input === "string" ? input : input.text;
+    const wellbeing = typeof input === "string" ? undefined : input.wellbeing;
     const t = text.trim();
     const crisis = textMayIndicateCrisis(t);
     const { profile, primary, maxW } = profileFromText(t);
     const { score, problem } = scoreAndProblem(primary, maxW);
     let problemLevel = crisis ? 0.95 : problem;
-    const suggestPsychologist = crisis || problemLevel >= 0.72;
+    if (wellbeing) {
+      const surveyBurden = Math.max(wellbeing.anxietyLevel, wellbeing.depressionLevel) / 100;
+      problemLevel = Math.min(1, problemLevel * 0.7 + surveyBurden * 0.3);
+    }
+    const suggestPsychologist = crisis || problemLevel >= 0.72 || wellbeing?.urgentRecommended === true;
 
     return finalizeAnalysis({
       score,

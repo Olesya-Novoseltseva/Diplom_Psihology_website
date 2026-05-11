@@ -31,6 +31,12 @@ export type MarkerDto = {
   description: string | null;
   lat: number;
   lng: number;
+  x: number;
+  y: number;
+  floorLabel: string | null;
+  roomLabel: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
   sortOrder: number;
 };
 
@@ -67,5 +73,10 @@ export class CampusApiService {
       category: q.category,
     });
     return this.http.getJson<{ markers: MarkerDto[] }>(`/api/campus/markers${query}`);
+  }
+
+  /** URL картинки плана (если админ загрузил), иначе null — тогда placeholder */
+  getPlanImage(): Promise<{ imageUrl: string | null }> {
+    return this.http.getJson<{ imageUrl: string | null }>("/api/campus/plan-image");
   }
 }

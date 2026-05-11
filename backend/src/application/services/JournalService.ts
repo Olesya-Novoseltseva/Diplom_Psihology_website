@@ -2,6 +2,8 @@ import type { IJournalRepository } from "../../domain/repositories/IJournalRepos
 import type { ISentimentAnalyzer } from "../../domain/services/ISentimentAnalyzer.js";
 import type { JournalEntryPublic } from "../../domain/entities/journal.types.js";
 import type { JournalPolicy } from "../../config/journalPolicy.js";
+import type { WellbeingMetricsService, WellbeingSnapshot } from "./WellbeingMetricsService.js";
+import { ServiceUnavailableError } from "../../domain/errors/HttpError.js";
 import { isNegativeStreak } from "../rules/negativeStreak.js";
 import { isDistressStreak } from "../rules/distressStreak.js";
 import { buildJournalAssistantMessage } from "../rules/journalAssistant.js";
@@ -40,10 +42,27 @@ export class JournalService {
     private readonly journal: IJournalRepository,
     private readonly sentiment: ISentimentAnalyzer,
     private readonly policy: JournalPolicy,
+    private readonly wellbeing?: WellbeingMetricsService,
   ) {}
 
   async addEntry(userId: string, content: string) {
-    const analysis = await this.sentiment.analyze(content);
+    const wellbeingSnapshot = await this.wellbeing?.current(userId);
+    let analysis;
+    try {
+      analysis = await this.sentiment.analyze({ text: content, wellbeing: wellbeingSnapshot });
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      if (raw.startsWith("LLM API:")) {
+        const detail = raw.replace(/\s+/g, " ").trim().slice(0, 400);
+        throw new ServiceUnavailableError(
+          "Не удалось выполнить анализ записи через нейросеть. Проверьте, что сервер (например vLLM) запущен, " +
+            "в backend/.env совпадают SENTIMENT_OPENAI_BASE_URL и SENTIMENT_OPENAI_MODEL с /v1/models. " +
+            `Технически: ${detail}`,
+          "LLM_UNAVAILABLE",
+        );
+      }
+      throw e;
+    }
     const crisisLanguageDetected = textMayIndicateCrisis(content);
     const psychologistSuggested =
       crisisLanguageDetected ||
@@ -88,6 +107,8 @@ export class JournalService {
       distressStreak,
       psychologistSuggested,
       assistantMessage,
+      assistantAdvice: buildStructuredAdvice(assistantMessage, wellbeingSnapshot, psychologistSuggested),
+      wellbeingSnapshot,
     };
   }
 
@@ -95,4 +116,24 @@ export class JournalService {
     const rows = await this.journal.listByUser(userId, limit);
     return rows.map(toPublic);
   }
+}
+
+function buildStructuredAdvice(message: string, wellbeing: WellbeingSnapshot | undefined, psychologistSuggested: boolean) {
+  const parts = message.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const factors: string[] = [];
+  if (wellbeing) {
+    factors.push(`Тревожность: ${wellbeing.anxietyLevel}/100`);
+    factors.push(`Депрессивность: ${wellbeing.depressionLevel}/100`);
+    if (wellbeing.latestSurveys.length) {
+      factors.push(`Учтены последние опросники: ${wellbeing.latestSurveys.map((s) => s.title).join(", ")}`);
+    }
+  }
+  return {
+    summary: parts[0] ?? "Запись сохранена и проанализирована.",
+    factors,
+    steps: parts.slice(1, psychologistSuggested ? 2 : 3),
+    helpRecommendation: psychologistSuggested
+      ? "По текущим признакам стоит обратиться к психологу вуза или другому очному специалисту."
+      : null,
+  };
 }

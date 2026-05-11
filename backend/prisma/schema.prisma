@@ -11,13 +11,21 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String   @map("password_hash")
+  role         UserRole @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   journalEntries   JournalEntry[]
   surveyAttempts   SurveyAttempt[]
+  createdMarkers   CampusMarker[] @relation("CampusMarkerCreatedBy")
+  updatedMarkers   CampusMarker[] @relation("CampusMarkerUpdatedBy")
 
   @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }
 
 model JournalEntry {
@@ -44,14 +52,98 @@ model SurveyAttempt {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   surveyKey String   @map("survey_key")
+  surveyId  String?  @map("survey_id")
+  surveyVersion Int  @default(1) @map("survey_version")
   answers   Json
   score     Float
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  survey Survey? @relation(fields: [surveyId], references: [id], onDelete: SetNull)
 
   @@index([userId, surveyKey, createdAt(sort: Desc)])
+  @@index([surveyId])
   @@map("survey_attempts")
+}
+
+model Survey {
+  id                 String   @id @default(uuid())
+  key                String   @unique
+  title              String
+  description        String   @db.Text
+  sharedOptionLabels Json?    @map("shared_option_labels")
+  scoreBands         Json     @default("[]") @map("score_bands")
+  version            Int      @default(1)
+  isActive           Boolean  @default(true) @map("is_active")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  questions SurveyQuestion[]
+  attempts  SurveyAttempt[]
+
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id           String  @id @default(uuid())
+  surveyId     String  @map("survey_id")
+  text         String  @db.Text
+  min          Int     @default(0)
+  max          Int     @default(3)
+  reverseScore Boolean @default(false) @map("reverse_score")
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@index([surveyId])
+  @@map("survey_questions")
+}
+
+model SelfHelpTopic {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  summary     String   @db.Text
+  disclaimer  String   @db.Text
+  categories  Json     @default("[]")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sections SelfHelpSection[]
+
+  @@map("selfhelp_topics")
+}
+
+model SelfHelpSection {
+  id         String @id @default(uuid())
+  topicId    String @map("topic_id")
+  heading    String
+  paragraphs Json
+  bullets    Json?
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  topic SelfHelpTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId])
+  @@map("selfhelp_sections")
+}
+
+model SupportContact {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  phone       String?
+  url         String?  @db.Text
+  email       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("support_contacts")
 }
 
 /// Точка на карте: еда, тихое место, навигация и т.д.
@@ -107,15 +199,39 @@ model CampusMarker {
   category    CampusMarkerCategory
   title       String
   description String?              @db.Text
-  lat         Float
-  lng         Float
+  lat         Float                @default(59.8774)
+  lng         Float                @default(30.2193)
+  x           Float                @default(50)
+  y           Float                @default(50)
+  floorLabel  String?              @map("floor_label")
+  roomLabel   String?              @map("room_label")
+  imageUrl    String?              @map("image_url") @db.Text
+  isActive    Boolean              @default(true) @map("is_active")
   sortOrder   Int                  @default(0) @map("sort_order")
+  createdById String?              @map("created_by_id")
+  updatedById String?              @map("updated_by_id")
   createdAt   DateTime             @default(now()) @map("created_at")
   updatedAt   DateTime             @updatedAt @map("updated_at")
 
   building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  createdBy User? @relation("CampusMarkerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("CampusMarkerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([buildingId])
   @@index([category])
+  @@index([isActive])
   @@map("campus_markers")
+}
+
+model CampusMapImage {
+  id        String   @id @default(uuid())
+  title     String
+  imageUrl  String   @map("image_url") @db.Text
+  width     Int?
+  height    Int?
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("campus_map_images")
 }

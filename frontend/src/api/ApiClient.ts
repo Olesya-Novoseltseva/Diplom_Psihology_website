@@ -80,6 +80,23 @@ export class ApiClient {
     return this.parse<T>(res);
   }
 
+  async patchJson<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "PATCH",
+      headers: this.buildHeaders(),
+      body: JSON.stringify(body),
+    });
+    return this.parse<T>(res);
+  }
+
+  async deleteJson<T>(path: string): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "DELETE",
+      headers: this.buildHeaders(),
+    });
+    return this.parse<T>(res);
+  }
+
   async getJson<T>(path: string): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "GET",

@@ -24,10 +24,12 @@ export class JwtTokenService implements ITokenService {
       }
       const sub = (decoded as { sub: unknown }).sub;
       const email = (decoded as { email: unknown }).email;
+      const rawRole = (decoded as { role?: unknown }).role;
       if (typeof sub !== "string" || typeof email !== "string") {
         throw new UnauthorizedError("Неверный токен");
       }
-      return { sub, email };
+      const role = rawRole === "ADMIN" ? "ADMIN" : "USER";
+      return { sub, email, role };
     } catch {
       throw new UnauthorizedError("Неверный или просроченный токен");
     }

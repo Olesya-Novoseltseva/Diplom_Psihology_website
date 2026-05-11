@@ -3,6 +3,8 @@ import type { SurveyAttemptRecord } from "../entities/survey.types.js";
 export type NewSurveyAttempt = {
   userId: string;
   surveyKey: string;
+  surveyId?: string;
+  surveyVersion?: number;
   answers: number[];
   score: number;
 };

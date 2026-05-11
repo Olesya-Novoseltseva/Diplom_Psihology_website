@@ -19,6 +19,10 @@ export class CampusService {
     return this.campus.listMarkers(filter);
   }
 
+  planImage(): Promise<{ imageUrl: string } | null> {
+    return this.campus.findDefaultCampusPlan();
+  }
+
   static parseCategory(raw: unknown): CampusMarkerCategory | undefined {
     if (typeof raw !== "string") return undefined;
     const up = raw.toUpperCase() as CampusMarkerCategory;

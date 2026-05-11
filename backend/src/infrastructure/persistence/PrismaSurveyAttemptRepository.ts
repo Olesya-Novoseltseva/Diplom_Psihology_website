@@ -10,6 +10,8 @@ export class PrismaSurveyAttemptRepository implements ISurveyAttemptRepository {
       data: {
         userId: row.userId,
         surveyKey: row.surveyKey,
+        surveyId: row.surveyId,
+        surveyVersion: row.surveyVersion ?? 1,
         answers: row.answers,
         score: row.score,
       },

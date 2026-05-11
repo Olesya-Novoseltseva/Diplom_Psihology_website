@@ -3,6 +3,7 @@ import type { UserRecord } from "../entities/user.types.js";
 export type CreateUserInput = {
   email: string;
   passwordHash: string;
+  role?: "USER" | "ADMIN";
 };
 
 export interface IUserRepository {

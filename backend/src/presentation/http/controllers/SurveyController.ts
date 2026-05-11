@@ -12,7 +12,7 @@ export class SurveyController {
 
   catalog = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      res.json({ surveys: this.surveys.catalog() });
+      res.json({ surveys: await this.surveys.catalog() });
     } catch (e) {
       next(e);
     }
@@ -20,7 +20,7 @@ export class SurveyController {
 
   definition = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      res.json(this.surveys.definition(req.params.surveyKey));
+      res.json(await this.surveys.definition(req.params.surveyKey));
     } catch (e) {
       next(e);
     }

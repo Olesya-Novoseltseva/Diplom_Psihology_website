@@ -33,7 +33,7 @@ type SurveyWithLast = SurveyCatalogItem & {
 };
 
 export function HomePage() {
-  const { user, loading, token, logout } = useAuth();
+  const { user, loading, token } = useAuth();
   const [entries, setEntries] = useState<JournalEntryDto[]>([]);
   const [surveys, setSurveys] = useState<SurveyWithLast[]>([]);
   const [dashErr, setDashErr] = useState<string | null>(null);
@@ -88,15 +88,13 @@ export function HomePage() {
 
   if (!user) {
     return (
-      <div className="card">
+      <div className="card card--guest">
         <h1>Платформа психологической поддержки (MVP)</h1>
-        <p className="muted" style={{ marginTop: 0 }}>
+        <p className="hero-lead">
           Безопасное место для дневника, коротких опросов самонаблюдения, материалов самопомощи и навигации по кампусу.
         </p>
-        <p className="muted" style={{ marginTop: "0.65rem", fontSize: "0.9rem" }}>
-          {NOTICE_GUEST}
-        </p>
-        <div className="row" style={{ marginTop: "0.85rem" }}>
+        <p className="lead-banner">{NOTICE_GUEST}</p>
+        <div className="row">
           <Link to="/login" className="btn btn--primary">
             Войти
           </Link>
@@ -104,14 +102,14 @@ export function HomePage() {
             Регистрация
           </Link>
         </div>
-        <p className="muted" style={{ marginTop: "0.9rem" }}>
+        <p className="hero-lead">
           Без входа доступны <Link to="/help">самопомощь</Link> и <Link to="/campus">карта кампуса</Link>. Список опросов открыт, чтобы посмотреть форму; сохранение результата — после{" "}
           <Link to="/login" className="text-link">
             входа
           </Link>
           .
         </p>
-        <div className="row" style={{ marginTop: "0.35rem" }}>
+        <div className="row">
           <Link to="/help" className="btn btn--ghost">
             Самопомощь
           </Link>
@@ -129,34 +127,15 @@ export function HomePage() {
   return (
     <div className="card">
       <h1>Личный кабинет</h1>
-      <p style={{ marginTop: 0 }}>
+      <p className="hero-lead">
         Вы вошли как <strong>{user.email}</strong>
         {dashLoading ? <span className="muted"> · загрузка сводки…</span> : null}
       </p>
       {dashErr ? <p className="error">{dashErr}</p> : null}
 
-      <h2 style={{ marginTop: "1.1rem" }}>Быстрые действия</h2>
-      <div className="row" style={{ marginTop: "0.35rem" }}>
-        <Link to="/journal" className="btn btn--primary">
-          Дневник
-        </Link>
-        <Link to="/surveys" className="btn btn--secondary">
-          Опросники
-        </Link>
-        <Link to="/help" className="btn btn--secondary">
-          Самопомощь
-        </Link>
-        <Link to="/campus" className="btn btn--secondary">
-          Кампус
-        </Link>
-        <button type="button" className="btn btn--ghost" onClick={logout}>
-          Выйти
-        </button>
-      </div>
-
-      <h2 style={{ marginTop: "1.15rem" }}>Последние записи дневника</h2>
+      <h2 className="section-title section-title--flush">Последние записи дневника</h2>
       {entries.length === 0 && !dashLoading ? (
-        <p className="muted" style={{ marginTop: 0 }}>
+        <p className="section-desc">
           Пока нет записей.{" "}
           <Link to="/journal" className="text-link">
             Сделайте короткую заметку
@@ -164,31 +143,29 @@ export function HomePage() {
           о состоянии — можно в несколько предложений.
         </p>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: "0.35rem 0 0" }}>
+        <ul className="journal-list">
           {entries.map((j) => (
             <li key={j.id} className="journal-item">
-              <small className="muted">
+              <div className="journal-item__meta muted">
                 {fmt(j.createdAt)} · {emotionRu(j.primaryEmotion)} · проблемность {Math.round(j.problemLevel * 100)}%
                 {j.suggestPsychologist ? " · просьба обратить внимание" : ""}
-              </small>
-              <div style={{ marginTop: "0.3rem" }}>{truncate(j.content, 200)}</div>
+              </div>
+              <div className="journal-item__body">{truncate(j.content, 200)}</div>
             </li>
           ))}
         </ul>
       )}
 
-      <h2 style={{ marginTop: "1.15rem" }}>Опросники</h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Последний сохранённый балл по каждому опросу:
-      </p>
+      <h2 className="section-title">Опросники</h2>
+      <p className="section-desc">Последний сохранённый балл по каждому опросу:</p>
       {surveys.length === 0 && !dashLoading ? (
         <p className="muted">Список опросов пуст. Добавьте опросники в настройках приложения (backend).</p>
       ) : (
-        <div style={{ marginTop: "0.5rem" }}>
+        <div>
           {surveys.map((s) => (
             <Link key={s.key} to={`/surveys/${encodeURIComponent(s.key)}`} className="survey-row">
               <div className="survey-row__title">{s.title}</div>
-              <div className="muted" style={{ marginTop: "0.25rem", fontSize: "0.9rem" }}>
+              <div className="muted journal-item__meta">
                 {s.lastAt != null && s.lastScore != null ? (
                   <>
                     Последний балл: <strong>{s.lastScore.toFixed(0)}</strong> ({fmt(s.lastAt)})

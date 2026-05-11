@@ -4,6 +4,9 @@ import { AuthService } from "../application/services/AuthService.js";
 import { JournalService } from "../application/services/JournalService.js";
 import { SurveyService } from "../application/services/SurveyService.js";
 import { CampusService } from "../application/services/CampusService.js";
+import { WellbeingMetricsService } from "../application/services/WellbeingMetricsService.js";
+import { SelfHelpService } from "../application/services/SelfHelpService.js";
+import { AdminService } from "../application/services/AdminService.js";
 import { BcryptPasswordHasher } from "../infrastructure/security/BcryptPasswordHasher.js";
 import { JwtTokenService } from "../infrastructure/security/JwtTokenService.js";
 import { PrismaUserRepository } from "../infrastructure/persistence/PrismaUserRepository.js";
@@ -37,11 +40,19 @@ export function createApplicationContext(): ApplicationContext {
   const journalRepository = new PrismaJournalRepository(prisma);
   const journalPolicy = journalPolicyFromEnv(env);
   const sentimentAnalyzer = createSentimentAnalyzer(env);
-  const journalService = new JournalService(journalRepository, sentimentAnalyzer, journalPolicy);
+  const wellbeingService = new WellbeingMetricsService(prisma, {
+    anxietyHelpLevel: env.ANXIETY_HELP_LEVEL,
+    anxietyUrgentLevel: env.ANXIETY_URGENT_LEVEL,
+    depressionHelpLevel: env.DEPRESSION_HELP_LEVEL,
+    depressionUrgentLevel: env.DEPRESSION_URGENT_LEVEL,
+  });
+  const journalService = new JournalService(journalRepository, sentimentAnalyzer, journalPolicy, wellbeingService);
   const surveyAttemptRepository = new PrismaSurveyAttemptRepository(prisma);
-  const surveyService = new SurveyService(surveyAttemptRepository);
+  const surveyService = new SurveyService(surveyAttemptRepository, prisma);
   const campusCatalogRepository = new PrismaCampusCatalogRepository(prisma);
   const campusService = new CampusService(campusCatalogRepository);
+  const selfHelpService = new SelfHelpService(prisma);
+  const adminService = new AdminService(prisma);
 
   const app = createHttpApp({
     env,
@@ -50,6 +61,9 @@ export function createApplicationContext(): ApplicationContext {
     journalService,
     surveyService,
     campusService,
+    wellbeingService,
+    selfHelpService,
+    adminService,
     tokenService,
   });
 

@@ -1,14 +1,15 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ApiClient } from "../api/ApiClient.js";
+import { ApiClient, ApiError } from "../api/ApiClient.js";
 import { JournalApiService, type JournalEntryDto } from "../api/JournalApiService.js";
+import { WellbeingApiService, type WellbeingPointDto, type WellbeingSnapshotDto } from "../api/WellbeingApiService.js";
 import { useAuth } from "../auth/AuthContext.js";
 import { emotionRu } from "../journal/emotionLabels.js";
-import { buildJournalTrendPoints } from "../journal/buildJournalTrendPoints.js";
-import { JournalTrendChart } from "../journal/JournalTrendChart.js";
+import { WellbeingChart } from "../journal/WellbeingChart.js";
 
 const api = new ApiClient("");
 const journalApi = new JournalApiService(api);
+const wellbeingApi = new WellbeingApiService(api);
 
 function fmt(d: string) {
   try {
@@ -23,15 +24,34 @@ export function JournalPage() {
   const [text, setText] = useState("");
   const [entries, setEntries] = useState<JournalEntryDto[]>([]);
   const [hint, setHint] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<WellbeingSnapshotDto | null>(null);
+  const [points, setPoints] = useState<WellbeingPointDto[]>([]);
   const [nudge, setNudge] = useState(false);
   const [distress, setDistress] = useState(false);
   const [psych, setPsych] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sentimentMode, setSentimentMode] = useState<"heuristic" | "openai" | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/health")
+      .then((r) => r.json() as Promise<{ sentimentProvider?: string }>)
+      .then((j) => {
+        const s = j?.sentimentProvider;
+        setSentimentMode(s === "openai" || s === "heuristic" ? s : null);
+      })
+      .catch(() => setSentimentMode(null));
+  }, []);
 
   const load = useCallback(async () => {
     const { entries: list } = await journalApi.list(40);
     setEntries(list);
+  }, []);
+
+  const loadWellbeing = useCallback(async () => {
+    const [current, daily] = await Promise.all([wellbeingApi.current(), wellbeingApi.daily()]);
+    setSnapshot(current.snapshot);
+    setPoints(daily.points);
   }, []);
 
   useEffect(() => {
@@ -39,7 +59,10 @@ export function JournalPage() {
     void load().catch(() => setErr("Не удалось загрузить записи"));
   }, [token, load]);
 
-  const trendPoints = useMemo(() => buildJournalTrendPoints(entries), [entries]);
+  useEffect(() => {
+    if (!token) return;
+    void loadWellbeing().catch(() => undefined);
+  }, [token, loadWellbeing]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -49,12 +72,18 @@ export function JournalPage() {
       const res = await journalApi.create(text.trim());
       setText("");
       setHint(res.assistantMessage);
+      setSnapshot(res.wellbeingSnapshot ?? null);
       setNudge(res.negativeStreak);
       setDistress(res.distressStreak);
       setPsych(res.psychologistSuggested);
       await load();
+      await loadWellbeing();
     } catch (er) {
-      setErr(er instanceof Error ? er.message : "Ошибка сохранения");
+      if (er instanceof ApiError && er.code === "LLM_UNAVAILABLE") {
+        setErr(er.message);
+      } else {
+        setErr(er instanceof Error ? er.message : "Ошибка сохранения");
+      }
     } finally {
       setBusy(false);
     }
@@ -62,28 +91,40 @@ export function JournalPage() {
 
   if (!token) {
     return (
-      <div className="card">
+      <div className="card card--guest">
         <p className="muted">Чтобы вести дневник, войдите в аккаунт.</p>
-        <Link to="/login" className="btn btn--primary" style={{ marginTop: "0.5rem", display: "inline-flex" }}>
-          Войти
-        </Link>
+        <div className="form-actions">
+          <Link to="/login" className="btn btn--primary">
+            Войти
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: "0.75rem" }}>
-        <h1 style={{ margin: 0 }}>Дневник</h1>
+      <header className="page-header">
+        <h1>Дневник</h1>
         <Link to="/" className="text-link">
           На главную
         </Link>
-      </div>
+      </header>
+
+      {sentimentMode === "openai" ? (
+        <p className="lead-banner lead-banner--net">
+          Анализ текста выполняется через внешний LLM-сервис (OpenAI-совместимый API). При сбоях сохранения проверьте доступность
+          сервера модели и настройки <code>SENTIMENT_OPENAI_*</code> в backend.
+        </p>
+      ) : sentimentMode === "heuristic" ? (
+        <p className="lead-banner lead-banner--local">Анализ записей — локальная эвристика, без обращения к сети.</p>
+      ) : null}
 
       {hint ? (
         <div
-          className={psych || distress || nudge ? "callout callout--warn" : "callout callout--info"}
-          style={{ marginBottom: "0.75rem", whiteSpace: "pre-wrap" }}
+          className={`callout callout--spaced callout--prewrap ${
+            psych || distress || nudge ? "callout--warn" : "callout--info"
+          }`}
         >
           {hint}
         </div>
@@ -100,35 +141,62 @@ export function JournalPage() {
           required
         />
         {err ? <p className="error">{err}</p> : null}
-        <button type="submit" className="btn btn--primary" disabled={busy}>
-          {busy ? "Сохраняю…" : "Сохранить"}
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="btn btn--primary" disabled={busy}>
+            {busy ? "Сохраняю…" : "Сохранить"}
+          </button>
+        </div>
       </form>
 
-      <h2 style={{ fontSize: "1rem", marginTop: "1.25rem" }}>Динамика</h2>
-      <p className="muted" style={{ fontSize: "0.9rem" }}>
-        По горизонтали — дата записи; линии показывают тональность (−1…1) и проблемность (0–100%).
-      </p>
-      <JournalTrendChart data={trendPoints} />
+      {snapshot ? (
+        <>
+          <h2 className="section-title">Текущие показатели</h2>
+          <div className="metric-grid">
+            <div className="metric-card">
+              Уровень тревожности<strong>{snapshot.anxietyLevel}/100</strong>
+            </div>
+            <div className="metric-card">
+              Уровень депрессивности<strong>{snapshot.depressionLevel}/100</strong>
+            </div>
+            <div className="metric-card">
+              Активность<strong>{snapshot.activityLevel}/100</strong>
+            </div>
+            <div className="metric-card">
+              Удовлетворенность<strong>{snapshot.satisfactionLevel}/100</strong>
+            </div>
+          </div>
+          {snapshot.helpRecommended ? (
+            <p className="callout callout--warn">
+              Показатели самонаблюдения повышены. После добавления контактов поддержки здесь появятся конкретные способы обратиться за помощью.
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
-      <h2 style={{ fontSize: "1rem", marginTop: "1.25rem" }}>Недавние</h2>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      <h2 className="section-title">Динамика</h2>
+      <p className="section-desc">
+        Шкала 0–100 показывает тревожность, депрессивность, активность и удовлетворенность по дневнику и опросникам.
+      </p>
+      <WellbeingChart data={points} />
+
+      <h2 className="section-title">Недавние</h2>
+      <ul className="journal-list">
         {entries.map((j) => (
           <li key={j.id} className="journal-item">
-            <small className="muted">
+            <div className="journal-item__meta muted">
               {fmt(j.createdAt)} · {emotionRu(j.primaryEmotion)} · проблемность {Math.round(j.problemLevel * 100)}% ·{" "}
               {j.sentimentLabel} ({j.sentimentScore.toFixed(2)})
-            </small>
-            <div style={{ marginTop: "0.25rem", whiteSpace: "pre-wrap" }}>{j.content}</div>
+            </div>
+            <div className="journal-item__body">{j.content}</div>
           </li>
         ))}
       </ul>
 
-      <p style={{ marginTop: "1rem" }}>
+      <div className="card-foot">
         <button type="button" className="btn btn--ghost" onClick={logout}>
           Выйти
         </button>
-      </p>
+      </div>
     </div>
   );
 }

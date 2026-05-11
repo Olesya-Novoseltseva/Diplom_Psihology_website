@@ -1,8 +1,16 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { listHelpTopicsForHub } from "../selfhelp/topics.js";
+import { ApiClient } from "../api/ApiClient.js";
+import { SelfHelpApiService } from "../api/SelfHelpApiService.js";
+
+const selfHelpApi = new SelfHelpApiService(new ApiClient(""));
 
 export function SelfHelpHub() {
-  const topics = listHelpTopicsForHub();
+  const [topics, setTopics] = useState<Array<{ slug: string; title: string; summary: string }>>([]);
+
+  useEffect(() => {
+    selfHelpApi.list().then((r) => setTopics(r.topics)).catch(() => setTopics([]));
+  }, []);
 
   return (
     <div className="card">

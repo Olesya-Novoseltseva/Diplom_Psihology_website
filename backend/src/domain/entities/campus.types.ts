@@ -30,5 +30,11 @@ export type CampusMarkerPublic = {
   description: string | null;
   lat: number;
   lng: number;
+  x: number;
+  y: number;
+  floorLabel: string | null;
+  roomLabel: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
   sortOrder: number;
 };

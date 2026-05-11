@@ -1,4 +1,9 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { PHQ9_SURVEY } from "../src/application/surveys/phq9Survey.js";
+import { GAD7_SURVEY } from "../src/application/surveys/gad7Survey.js";
+import { PSS10_SURVEY } from "../src/application/surveys/pss10Survey.js";
+import { HELP_TOPICS } from "../src/data/selfhelpSeed.js";
 
 const prisma = new PrismaClient();
 
@@ -69,7 +74,111 @@ async function main() {
     });
   }
 
-  console.log(`Upserted ${LETI_BUILDINGS.length} LETI buildings and floors.`);
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "Admin12345";
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { role: "ADMIN" },
+    create: {
+      email: adminEmail,
+      passwordHash: await bcrypt.hash(adminPassword, 10),
+      role: "ADMIN",
+    },
+  });
+
+  for (const [index, survey] of [PHQ9_SURVEY, GAD7_SURVEY, PSS10_SURVEY].entries()) {
+    await prisma.survey.upsert({
+      where: { key: survey.key },
+      update: {
+        title: survey.title,
+        description: survey.description,
+        sharedOptionLabels: survey.sharedOptionLabels ?? undefined,
+        isActive: true,
+        sortOrder: index,
+        questions: {
+          deleteMany: {},
+          create: survey.questions.map((q, i) => ({ text: q.text, min: q.min, max: q.max, sortOrder: i })),
+        },
+      },
+      create: {
+        key: survey.key,
+        title: survey.title,
+        description: survey.description,
+        sharedOptionLabels: survey.sharedOptionLabels ?? undefined,
+        scoreBands: [],
+        sortOrder: index,
+        questions: {
+          create: survey.questions.map((q, i) => ({ text: q.text, min: q.min, max: q.max, sortOrder: i })),
+        },
+      },
+    });
+  }
+
+  for (const [index, topic] of HELP_TOPICS.entries()) {
+    await prisma.selfHelpTopic.upsert({
+      where: { slug: topic.slug },
+      update: {
+        title: topic.title,
+        summary: topic.summary,
+        disclaimer: topic.disclaimer,
+        categories: topic.categories,
+        isActive: true,
+        sortOrder: index,
+        sections: {
+          deleteMany: {},
+          create: topic.sections.map((s, i) => ({ ...s, sortOrder: i })),
+        },
+      },
+      create: {
+        slug: topic.slug,
+        title: topic.title,
+        summary: topic.summary,
+        disclaimer: topic.disclaimer,
+        categories: topic.categories,
+        sortOrder: index,
+        sections: {
+          create: topic.sections.map((s, i) => ({ ...s, sortOrder: i })),
+        },
+      },
+    });
+  }
+
+  await prisma.supportContact.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-0000-0000-000000000001",
+      title: "Контакты поддержки будут добавлены",
+      description: "Заказчик укажет контакты позднее; пока система показывает безопасную общую рекомендацию.",
+      sortOrder: 1,
+    },
+  });
+
+  const firstBuilding = await prisma.building.findFirst({ orderBy: { sortOrder: "asc" } });
+  const demoMarkers = [
+    { title: "Тихая зона", category: "QUIET" as const, x: 55, y: 68, floorLabel: "1 этаж", roomLabel: "зона отдыха" },
+    { title: "Столовая", category: "FOOD" as const, x: 22, y: 23, floorLabel: "1 этаж", roomLabel: "рядом с входом" },
+    { title: "Учебное пространство", category: "STUDY" as const, x: 82, y: 38, floorLabel: "2 этаж", roomLabel: "аудитория" },
+  ];
+  await prisma.campusMarker.deleteMany({
+    where: { title: { in: demoMarkers.map((m) => m.title) }, createdById: admin.id },
+  });
+  for (const [i, marker] of demoMarkers.entries()) {
+    await prisma.campusMarker.create({
+      data: {
+        ...marker,
+        buildingId: firstBuilding?.id,
+        description: "Демо-точка для статичной карты кампуса. Администратор может заменить описание и координаты.",
+        lat: BASE_LAT,
+        lng: BASE_LNG,
+        sortOrder: i,
+        createdById: admin.id,
+        updatedById: admin.id,
+      },
+    });
+  }
+
+  console.log(`Seed complete: buildings=${LETI_BUILDINGS.length}, admin=${adminEmail}, surveys/selfhelp/demo markers.`);
 }
 
 main()

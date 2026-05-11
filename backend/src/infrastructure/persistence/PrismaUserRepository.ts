@@ -6,12 +6,14 @@ function mapUser(row: {
   id: string;
   email: string;
   passwordHash: string;
+  role: "USER" | "ADMIN";
   createdAt: Date;
 }): UserRecord {
   return {
     id: row.id,
     email: row.email,
     passwordHash: row.passwordHash,
+    role: row.role,
     createdAt: row.createdAt,
   };
 }
@@ -34,6 +36,7 @@ export class PrismaUserRepository implements IUserRepository {
       data: {
         email: input.email,
         passwordHash: input.passwordHash,
+        role: input.role ?? "USER",
       },
     });
     return mapUser(row);

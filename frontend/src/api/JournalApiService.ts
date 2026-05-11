@@ -20,6 +20,21 @@ export type CreateJournalResponse = {
   distressStreak: boolean;
   psychologistSuggested: boolean;
   assistantMessage: string;
+  assistantAdvice?: {
+    summary: string;
+    factors: string[];
+    steps: string[];
+    helpRecommendation: string | null;
+  };
+  wellbeingSnapshot?: {
+    anxietyLevel: number;
+    depressionLevel: number;
+    activityLevel: number;
+    satisfactionLevel: number;
+    latestSurveys: Array<{ key: string; title: string; score: number; maxScore: number; severity: string; createdAt: string }>;
+    helpRecommended: boolean;
+    urgentRecommended: boolean;
+  };
 };
 
 export class JournalApiService {

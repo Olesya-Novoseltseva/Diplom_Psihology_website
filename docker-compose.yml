@@ -11,5 +11,44 @@ services:
     volumes:
       - wellness_pgdata:/var/lib/postgresql/data
 
+  # NVIDIA GPU + образ vllm/vllm-openai (Linux-контейнер). На Windows — Docker Desktop с WSL2 и включённой GPU.
+  # Запуск только вместе с профилем: docker compose --profile vllm up -d vllm
+  # gpu_memory_utilization и max-model-len — см. README (KV-cache vs стартовая память).
+  # ВАЖНО: строка VLLM_MODEL должна совпадать с SENTIMENT_OPENAI_MODEL в backend/.env (иначе 404 на /chat/completions).
+  vllm:
+    image: vllm/vllm-openai:latest
+    profiles: ["vllm"]
+    ports:
+      - "${VLLM_PORT:-8000}:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      # один GPU в Docker Desktop / WSL — часто стабильнее, чем дефолтный P2P NCCL
+      NCCL_P2P_DISABLE: "1"
+      NCCL_IB_DISABLE: "1"
+    volumes:
+      - vllm_hf_cache:/root/.cache/huggingface
+    shm_size: "4gb"
+    command:
+      - "--model"
+      - "${VLLM_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--max-model-len"
+      - "${VLLM_MAX_MODEL_LEN:-2048}"
+      - "--gpu-memory-utilization"
+      - "${VLLM_GPU_MEMORY_UTIL:-0.6}"
+      # меньше пиков памяти при torch.compile/CUDA graph на части конфигураций WSL
+      - "--enforce-eager"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
 volumes:
   wellness_pgdata:
+  vllm_hf_cache:

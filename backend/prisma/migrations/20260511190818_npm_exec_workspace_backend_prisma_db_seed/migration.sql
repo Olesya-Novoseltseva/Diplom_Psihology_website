@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "campus_markers" ALTER COLUMN "lat" SET DEFAULT 59.8774,
+ALTER COLUMN "lng" SET DEFAULT 30.2193;

@@ -15,6 +15,8 @@ const envSchema = z
     SENTIMENT_OPENAI_BASE_URL: z.string().url().optional(),
     SENTIMENT_OPENAI_API_KEY: z.string().optional(),
     SENTIMENT_OPENAI_MODEL: z.string().optional(),
+    /** true/1 — добавить response_format json_object в chat/completions (vLLM / OpenAI-совместимые серверы с поддержкой). */
+    SENTIMENT_OPENAI_JSON_MODE: z.string().optional(),
 
     /** При problemLevel >= порога рекомендуем психолога (наряду с флагом модели и кризисными фразами). */
     JOURNAL_PSYCHOLOGIST_LEVEL: z.coerce.number().min(0).max(1).default(0.72),
@@ -23,6 +25,14 @@ const envSchema = z
     JOURNAL_SENTIMENT_STREAK_THRESHOLD: z.coerce.number().min(-1).max(1).default(-0.6),
     JOURNAL_SENTIMENT_STREAK_LEN: z.coerce.number().int().min(2).max(10).default(3),
     JOURNAL_DISTRESS_STREAK_LEN: z.coerce.number().int().min(2).max(10).default(3),
+
+    ANXIETY_HELP_LEVEL: z.coerce.number().min(0).max(100).default(70),
+    ANXIETY_URGENT_LEVEL: z.coerce.number().min(0).max(100).default(85),
+    DEPRESSION_HELP_LEVEL: z.coerce.number().min(0).max(100).default(65),
+    DEPRESSION_URGENT_LEVEL: z.coerce.number().min(0).max(100).default(80),
+
+    ADMIN_EMAIL: z.string().email().optional(),
+    ADMIN_PASSWORD: z.string().min(8).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.SENTIMENT_PROVIDER === "openai") {
@@ -44,6 +54,12 @@ const envSchema = z
   });
 
 export type AppEnv = z.infer<typeof envSchema>;
+
+/** Включает `response_format: { type: "json_object" }` для дневника (удобно для vLLM + Instruct). */
+export function sentimentOpenAiJsonModeEnabled(env: AppEnv): boolean {
+  const v = env.SENTIMENT_OPENAI_JSON_MODE?.trim().toLowerCase();
+  return v === "true" || v === "1";
+}
 
 export function loadEnv(): AppEnv {
   const parsed = envSchema.safeParse(process.env);

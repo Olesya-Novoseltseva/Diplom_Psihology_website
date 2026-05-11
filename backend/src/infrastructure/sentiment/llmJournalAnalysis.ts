@@ -14,10 +14,33 @@ export const JOURNAL_LLM_SYSTEM_RU = `Ты помогаешь студенту �
 - "suggestPsychologist": true/false — true при стойкой боли, безнадёжности, панике, намерении навредить себе или если человек явно не справляется сам.
 - "advice": 1–2 коротких предложения на «вы»: конкретный следующий шаг (сон, прогулка, дыхание, кому написать, к кому в вузе обратиться). Без диагнозов и без назначений лекарств. Тон поддерживающий.
 
+Если в сообщении есть контекст опросников, используй его как дополнительный фон: не ставь диагноз, но учитывай высокие уровни тревожности/депрессивности при осторожности совета.
 Если текст нейтрален — primaryEmotion: "neutral", problemLevel близок к 0, advice короткий и ровный.`;
 
-export function buildJournalUserPrompt(text: string): string {
-  return `Запись пользователя:\n---\n${text.trim().slice(0, 12_000)}\n---`;
+export function buildJournalUserPrompt(
+  text: string,
+  wellbeing?: {
+    anxietyLevel: number;
+    depressionLevel: number;
+    activityLevel: number;
+    satisfactionLevel: number;
+    latestSurveys: Array<{ key: string; title: string; score: number; maxScore: number; severity: string; createdAt: string }>;
+  },
+): string {
+  const surveyBlock = wellbeing
+    ? `\nКонтекст самонаблюдения пользователя (не диагноз, учитывать осторожно):\n${JSON.stringify(
+        {
+          anxietyLevel: wellbeing.anxietyLevel,
+          depressionLevel: wellbeing.depressionLevel,
+          activityLevel: wellbeing.activityLevel,
+          satisfactionLevel: wellbeing.satisfactionLevel,
+          latestSurveys: wellbeing.latestSurveys.slice(0, 5),
+        },
+        null,
+        2,
+      )}\n`
+    : "";
+  return `${surveyBlock}Запись пользователя:\n---\n${text.trim().slice(0, 12_000)}\n---`;
 }
 
 const MAX_ADVICE_LEN = 520;

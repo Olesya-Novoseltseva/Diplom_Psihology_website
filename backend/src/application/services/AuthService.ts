@@ -9,6 +9,7 @@ function toPublicUser(user: UserRecord): PublicUser {
   return {
     id: user.id,
     email: user.email,
+    role: user.role,
     createdAt: user.createdAt,
   };
 }
@@ -38,7 +39,7 @@ export class AuthService {
       passwordHash,
     });
 
-    const token = this.tokens.sign({ sub: user.id, email: user.email });
+    const token = this.tokens.sign({ sub: user.id, email: user.email, role: user.role });
     return { user: toPublicUser(user), token };
   }
 
@@ -54,7 +55,7 @@ export class AuthService {
       throw new UnauthorizedError("Неверный email или пароль");
     }
 
-    const token = this.tokens.sign({ sub: user.id, email: user.email });
+    const token = this.tokens.sign({ sub: user.id, email: user.email, role: user.role });
     return { user: toPublicUser(user), token };
   }
 

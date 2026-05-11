@@ -15,4 +15,5 @@ export interface ICampusCatalogRepository {
   listBuildings(): Promise<BuildingPublic[]>;
   findBuildingBundleBySlug(slug: string): Promise<BuildingBundle | null>;
   listMarkers(filter: MarkerFilter): Promise<CampusMarkerPublic[]>;
+  findDefaultCampusPlan(): Promise<{ imageUrl: string } | null>;
 }

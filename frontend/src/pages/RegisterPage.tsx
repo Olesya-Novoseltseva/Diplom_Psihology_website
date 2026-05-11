@@ -48,7 +48,7 @@ export function RegisterPage() {
           required
         />
         {error ? <p className="error">{error}</p> : null}
-        <div className="row" style={{ marginTop: "0.75rem" }}>
+        <div className="form-actions">
           <button type="submit" className="btn btn--primary" disabled={pending}>
             {pending ? "Создаём…" : "Создать аккаунт"}
           </button>

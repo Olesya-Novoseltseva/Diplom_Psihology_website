@@ -21,6 +21,12 @@ export class UnauthorizedError extends HttpError {
   }
 }
 
+export class ForbiddenError extends HttpError {
+  constructor(message: string) {
+    super(message, 403, "FORBIDDEN");
+  }
+}
+
 export class NotFoundError extends HttpError {
   constructor(message: string) {
     super(message, 404, "NOT_FOUND");
@@ -30,5 +36,12 @@ export class NotFoundError extends HttpError {
 export class BadRequestError extends HttpError {
   constructor(message: string) {
     super(message, 400, "BAD_REQUEST");
+  }
+}
+
+/** 503 — внешняя зависимость (например LLM) недоступна. */
+export class ServiceUnavailableError extends HttpError {
+  constructor(message: string, code = "SERVICE_UNAVAILABLE") {
+    super(message, 503, code);
   }
 }

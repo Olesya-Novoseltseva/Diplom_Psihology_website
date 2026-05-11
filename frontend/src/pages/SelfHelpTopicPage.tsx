@@ -1,11 +1,24 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getHelpTopic } from "../selfhelp/topics.js";
+import { ApiClient } from "../api/ApiClient.js";
+import { SelfHelpApiService, type HelpTopicDto } from "../api/SelfHelpApiService.js";
+
+const selfHelpApi = new SelfHelpApiService(new ApiClient(""));
 
 export function SelfHelpTopicPage() {
   const { slug = "" } = useParams();
-  const topic = getHelpTopic(slug);
+  const [topic, setTopic] = useState<HelpTopicDto | null | undefined>(undefined);
 
-  if (!topic) {
+  useEffect(() => {
+    setTopic(undefined);
+    selfHelpApi.bySlug(slug).then((r) => setTopic(r.topic)).catch(() => setTopic(null));
+  }, [slug]);
+
+  if (topic === undefined) {
+    return <div className="card"><p className="muted">Загрузка…</p></div>;
+  }
+
+  if (topic === null) {
     return (
       <div className="card">
         <h1>Раздел не найден</h1>

@@ -11,6 +11,15 @@ const markersQuerySchema = z.object({
 export class CampusController {
   constructor(private readonly campus: CampusService) {}
 
+  planImage = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const row = await this.campus.planImage();
+      res.json({ imageUrl: row?.imageUrl ?? null });
+    } catch (e) {
+      next(e);
+    }
+  };
+
   buildings = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const buildings = await this.campus.buildings();

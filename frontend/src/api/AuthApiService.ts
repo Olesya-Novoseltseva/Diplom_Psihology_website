@@ -3,6 +3,7 @@ import type { ApiClient } from "./ApiClient.js";
 export type PublicUserDto = {
   id: string;
   email: string;
+  role: "USER" | "ADMIN";
   createdAt: string;
 };
 

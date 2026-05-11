@@ -59,7 +59,8 @@ export class PrismaCampusCatalogRepository implements ICampusCatalogRepository {
     const where: {
       buildingId?: string;
       category?: CampusMarkerCategory;
-    } = {};
+      isActive: boolean;
+    } = { isActive: true };
     if (filter.buildingId) where.buildingId = filter.buildingId;
     if (filter.category) where.category = filter.category;
 
@@ -75,7 +76,23 @@ export class PrismaCampusCatalogRepository implements ICampusCatalogRepository {
       description: m.description,
       lat: m.lat,
       lng: m.lng,
+      x: m.x,
+      y: m.y,
+      floorLabel: m.floorLabel,
+      roomLabel: m.roomLabel,
+      imageUrl: m.imageUrl,
+      isActive: m.isActive,
       sortOrder: m.sortOrder,
     }));
+  }
+
+  async findDefaultCampusPlan(): Promise<{ imageUrl: string } | null> {
+    const preferred = await this.prisma.campusMapImage.findFirst({
+      where: { isDefault: true },
+      orderBy: [{ updatedAt: "desc" }],
+    });
+    if (preferred?.imageUrl) return { imageUrl: preferred.imageUrl };
+    const any = await this.prisma.campusMapImage.findFirst({ orderBy: { updatedAt: "desc" } });
+    return any?.imageUrl ? { imageUrl: any.imageUrl } : null;
   }
 }
