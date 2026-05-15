@@ -63,6 +63,45 @@
    npm test
    ```
 
+## Полный стек в Docker + доступ для руководителя через ngrok (без VPS и домена)
+
+Внешнее HTTPS даёт **[ngrok](https://ngrok.com/)** на вашей машине. Сервис поднимается локально, руководитель открывает выданную ссылку из интернета.
+
+**Пошаговый разбор команд — в [`TUNNEL_DEMO.md`](./TUNNEL_DEMO.md).**
+
+### Из чего состоит `docker-compose.prod.yml`
+
+- **postgres**, **vllm**, **backend**, **frontend** (без Caddy и без Let’s Encrypt).
+- **nginx** во `frontend`: статика приложения и прокси **`/api/`**, **`/uploads/`** → backend (единый адрес для браузера под туннелем).
+- Наружу на хост пробрасывается только **`127.0.0.1:${TUNNEL_INGRESS_PORT:-8080}:80`**.
+- **backend/Dockerfile** и **`backend/scripts/docker-entrypoint.sh`** — сборка API, автоматические миграции при старте, опциональный `RUN_DB_SEED`.
+- По умолчанию **`CORS_REFLECT_REQUEST_ORIGIN=true`** в compose — нужно для сменных поддоменов туннеля.
+
+Шаблон переменных: **`.env.prod.example`** → скопировать в **`.env.prod`**.
+
+Поднять:
+
+```powershell
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```
+
+Проверка до туннеля (подставьте порт из `TUNNEL_INGRESS_PORT` в `.env.prod`):
+
+```powershell
+curl http://127.0.0.1:8090/api/health
+```
+
+Дальше: `ngrok http 8090` (или ваш порт из `.env.prod`), либо скрипт `powershell -ExecutionPolicy Bypass -File .\scripts\start-ngrok.ps1 -Port 8090` — см. **`TUNNEL_DEMO.md`**.
+
+### Если `backend` в цикле Restarting
+
+Смотрите `docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail 200 backend`. При **Prisma P1000** (ошибка авторизации в PostgreSQL) читайте раздел в **`TUNNEL_DEMO.md`**: прод-сервисы пишут данные в том **`wellness_pgdata_prod`** (отдельно от **`wellness_pgdata`** у `docker-compose.yml`).
+
+### Замечания по vLLM
+
+- Из backend: `http://vllm:8000/v1`, модель: `VLLM_MODEL`.
+- Если не хватает VRAM — уменьняйте `VLLM_GPU_MEMORY_UTIL`, `VLLM_MAX_MODEL_LEN` или модель (см. раздел ниже про локальный vLLM).
+
 ## Локальный LLM для дневника (vLLM + Qwen)
 
 Сайт на Node.js **не встраивает** vLLM: сервер с моделью поднимается **отдельно**. В `backend/.env` задаётся только HTTP-клиент к OpenAI-совместимому API (`/v1/chat/completions`).

@@ -21,7 +21,7 @@
   --shadow: 0 1px 3px rgb(21 32 40 / 7%), 0 8px 24px rgb(21 32 40 / 6%);
   --shadow-nav: 0 1px 0 rgb(21 32 40 / 5%), 0 4px 20px rgb(21 32 40 / 4%);
   --shadow-focus: 0 0 0 3px rgb(21 101 168 / 22%);
-  --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --main-max: 56rem;
   font-family: var(--font);
   line-height: 1.55;
@@ -690,7 +690,6 @@ button:not(.btn):focus-visible {
   min-height: 0;
   overflow: hidden;
   overscroll-behavior: contain;
-  cursor: crosshair;
   touch-action: pan-y pinch-zoom;
 }
 
@@ -698,8 +697,8 @@ button:not(.btn):focus-visible {
   cursor: revert;
 }
 
-.static-campus-map:not(.static-campus-map--edit) .static-campus-map__viewport {
-  cursor: default;
+.static-campus-map__viewport--drag-pan {
+  user-select: none;
 }
 
 .static-campus-map__content {
@@ -738,20 +737,98 @@ button:not(.btn):focus-visible {
 }
 
 .static-campus-map__popup {
-  position: absolute;
-  width: min(280px, 88%);
-  padding: 0.85rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: #fff;
   box-shadow: var(--shadow);
-  z-index: 5;
+}
+
+.static-campus-map__popup--floating {
+  position: absolute;
+  z-index: 30;
+  width: min(440px, calc(100vw - 24px));
+  max-width: calc(100% - 18px);
+  max-height: min(78vh, calc(100% - 16px));
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius);
+  box-shadow: 0 16px 44px rgb(15 23 42 / 14%), 0 0 1px rgb(15 23 42 / 18%);
+}
+
+.static-campus-map__popup-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.15rem 0.35rem 0.15rem 0.55rem;
+  border-bottom: 1px solid rgb(15 23 42 / 8%);
+  background: linear-gradient(180deg, rgb(249 250 251) 0%, rgb(241 245 249) 100%);
+}
+
+.static-campus-map__popup-dragzone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  padding: 0.25rem 0.35rem;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.static-campus-map__popup-dragzone--dragging {
+  cursor: grabbing;
+}
+
+.static-campus-map__popup-grip {
+  display: block;
+  width: 7px;
+  height: 22px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(180deg, rgb(100 116 139) 0 2px, transparent 2px 5px);
+  opacity: 0.48;
+  flex-shrink: 0;
+}
+
+.static-campus-map__popup-drag-hint {
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.static-campus-map__popup--floating .static-campus-map__close {
+  position: static;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.static-campus-map__popup-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.85rem 1rem 1.05rem;
+  flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.static-campus-map__popup--admin.static-campus-map__popup--floating {
+  width: min(460px, calc(100% - 18px));
+  max-height: min(82vh, calc(100% - 12px));
 }
 
 .static-campus-map__close {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.5rem;
   border: 0;
   background: transparent;
   font-size: 1.2rem;
@@ -765,6 +842,89 @@ button:not(.btn):focus-visible {
   object-fit: cover;
   border-radius: var(--radius-sm);
   margin-bottom: 0.6rem;
+}
+
+.btn--compact {
+  padding: 0.35rem 0.72rem;
+  font-size: 0.8125rem;
+}
+
+.btn--danger {
+  border: 1px solid rgb(185 28 28 / 32%);
+  color: #991b1b;
+  background: rgb(254 226 226 / 45%);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: rgb(254 202 202 / 55%);
+}
+
+.btn--icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  color: rgb(148 163 184);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.btn--icon-only:hover:not(:disabled) {
+  background: rgb(239 68 68 / 10%);
+  color: #dc2626;
+}
+
+.admin-marker-panel__title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.admin-marker-panel > label:first-of-type {
+  margin-top: 0.2rem;
+}
+
+.admin-marker-preview {
+  display: block;
+  width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.65rem;
+  border: 1px solid var(--border);
+}
+
+.admin-marker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  align-items: center;
+}
+
+.admin-marker-list-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.admin-marker-list-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-marker-panel label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.65rem;
+  margin-bottom: 0.28rem;
+  color: var(--text-muted);
+}
+
+.admin-marker-panel .input {
+  margin-bottom: 0;
 }
 
 .static-campus-map__edit-hint {
@@ -800,6 +960,185 @@ button:not(.btn):focus-visible {
 .metric-card strong {
   display: block;
   font-size: 1.35rem;
+}
+
+/* ─── Admin: surveys & self-help CRUD ─────────────────────────────── */
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.admin-editor-panel {
+  margin: 0 0 1.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.admin-editor-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.admin-editor-panel__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.admin-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.tiny-hint {
+  margin: 0 0 0.6rem !important;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.monospace-tiny {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+}
+
+.admin-score-bands {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.admin-score-band-row {
+  align-items: flex-end;
+}
+
+.admin-score-band-row label.mini-field {
+  flex: 0 0 auto;
+  min-width: 4.25rem;
+}
+
+label.mini-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+label.flex-grow {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+label.flex-grow-full {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.btn--icon-only-remove {
+  flex-shrink: 0;
+}
+
+.admin-form-actions.row {
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.admin-entity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.admin-entity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 88%);
+}
+
+.admin-entity-row--inactive {
+  opacity: 0.72;
+  background: var(--surface-muted);
+}
+
+.admin-entity-row__main {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.admin-entity-row__main strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.admin-entity-row__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.52rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid rgb(90 106 120 / 22%);
+  color: var(--text-muted);
+  background: rgb(255 255 255 / 70%);
+}
+
+.admin-badge.admin-badge--ok {
+  border-color: rgb(15 118 110 / 32%);
+  color: #115e56;
+  background: var(--accent-muted);
+}
+
+.admin-question-card {
+  padding: 0.72rem 0.82rem;
+  margin-bottom: 0.72rem;
+  border: 1px solid rgb(219 227 235 / 90%);
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 96%);
+}
+
+.admin-question-card__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-help-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.wrap-gap {
+  gap: 0.45rem !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

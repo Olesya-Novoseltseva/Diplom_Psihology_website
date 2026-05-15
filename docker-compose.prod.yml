@@ -1,0 +1,104 @@
+# Полный локальный стек в Docker для разработки и демонстрации через ngrok (без собственного домена и без Caddy).
+# Вход только на этом ПК: 127.0.0.1:<TUNNEL_INGRESS_PORT> → nginx во frontend (/api и /uploads проксируются в backend).
+#
+# Запуск:
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# Туннель:
+#   ngrok http 8080
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      # Отдельно от docker-compose.yml (там том wellness_pgdata), иначе P1000: старый пароль/БД в томе ≠ .env.prod
+      - wellness_pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    restart: unless-stopped
+    shm_size: "4gb"
+    gpus: all
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      NCCL_P2P_DISABLE: "1"
+      NCCL_IB_DISABLE: "1"
+    volumes:
+      - vllm_hf_cache:/root/.cache/huggingface
+    command:
+      - "--model"
+      - "${VLLM_MODEL}"
+      - "--served-model-name"
+      - "${VLLM_MODEL}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--max-model-len"
+      - "${VLLM_MAX_MODEL_LEN:-2048}"
+      - "--gpu-memory-utilization"
+      - "${VLLM_GPU_MEMORY_UTIL:-0.6}"
+      - "--enforce-eager"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vllm:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGIN: http://127.0.0.1:${TUNNEL_INGRESS_PORT:-8080}
+      CORS_REFLECT_REQUEST_ORIGIN: ${CORS_REFLECT_REQUEST_ORIGIN:-true}
+      SENTIMENT_PROVIDER: openai
+      SENTIMENT_OPENAI_BASE_URL: http://vllm:8000/v1
+      SENTIMENT_OPENAI_MODEL: ${VLLM_MODEL}
+      SENTIMENT_OPENAI_API_KEY: ${SENTIMENT_OPENAI_API_KEY:-}
+      SENTIMENT_OPENAI_JSON_MODE: ${SENTIMENT_OPENAI_JSON_MODE:-true}
+      JOURNAL_PSYCHOLOGIST_LEVEL: ${JOURNAL_PSYCHOLOGIST_LEVEL:-0.72}
+      JOURNAL_DISTRESS_STREAK_LEVEL: ${JOURNAL_DISTRESS_STREAK_LEVEL:-0.58}
+      JOURNAL_SENTIMENT_STREAK_THRESHOLD: ${JOURNAL_SENTIMENT_STREAK_THRESHOLD:--0.6}
+      JOURNAL_SENTIMENT_STREAK_LEN: ${JOURNAL_SENTIMENT_STREAK_LEN:-3}
+      JOURNAL_DISTRESS_STREAK_LEN: ${JOURNAL_DISTRESS_STREAK_LEN:-3}
+      ANXIETY_HELP_LEVEL: ${ANXIETY_HELP_LEVEL:-70}
+      ANXIETY_URGENT_LEVEL: ${ANXIETY_URGENT_LEVEL:-85}
+      DEPRESSION_HELP_LEVEL: ${DEPRESSION_HELP_LEVEL:-65}
+      DEPRESSION_URGENT_LEVEL: ${DEPRESSION_URGENT_LEVEL:-80}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      RUN_DB_SEED: ${RUN_DB_SEED:-false}
+      DB_MIGRATE_MAX_ATTEMPTS: ${DB_MIGRATE_MAX_ATTEMPTS:-30}
+      DB_MIGRATE_SLEEP_SECONDS: ${DB_MIGRATE_SLEEP_SECONDS:-2}
+    volumes:
+      - wellness_uploads:/app/uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${TUNNEL_INGRESS_PORT:-8080}:80"
+
+volumes:
+  wellness_pgdata_prod:
+  wellness_uploads:
+  vllm_hf_cache:

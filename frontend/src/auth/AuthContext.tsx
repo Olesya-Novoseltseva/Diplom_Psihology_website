@@ -50,9 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
+    const ctrl = new AbortController();
+    const sessionCheckMs = 18_000;
+    const timeoutId = window.setTimeout(() => ctrl.abort(), sessionCheckMs);
+
     void (async () => {
       try {
-        const { user: me } = await authApi.me();
+        const { user: me } = await authApi.me(ctrl.signal);
         if (!cancelled) {
           setUser(me);
         }
@@ -61,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           logout();
         }
       } finally {
+        window.clearTimeout(timeoutId);
         if (!cancelled) {
           setLoading(false);
         }
@@ -69,6 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      ctrl.abort();
+      window.clearTimeout(timeoutId);
     };
   }, [token, logout]);
 

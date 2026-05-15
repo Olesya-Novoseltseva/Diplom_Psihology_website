@@ -68,6 +68,33 @@ export function wheelZoomTowardPoint(
   return clampPan({ scale: newScale, tx, ty }, vw, vh, layerW, layerH);
 }
 
+/** Сдвиг вида после перетаскивания правой кнопкой мыши (границы как у колёсика). */
+export function applyPanDelta(
+  prev: MapViewTransform,
+  vw: number,
+  vh: number,
+  layerW: number,
+  layerH: number,
+  dtx: number,
+  dty: number,
+): MapViewTransform {
+  return clampPan({ scale: prev.scale, tx: prev.tx + dtx, ty: prev.ty + dty }, vw, vh, layerW, layerH);
+}
+
+/** Есть куда двигать схему (увеличение или выпирает за край окна превью). */
+export function viewportAllowsPan(
+  vw: number,
+  vh: number,
+  layerW: number,
+  layerH: number,
+  t: MapViewTransform,
+): boolean {
+  if (vw < 1 || vh < 1 || layerW < 1 || layerH < 1) return false;
+  const cw = layerW * t.scale;
+  const ch = layerH * t.scale;
+  return t.scale > 1.02 || cw > vw + 6 || ch > vh + 6;
+}
+
 /** Курсор браузера → процент по слою (как хранится в БД), layerW/H — размер слоя без scale. */
 export function clientToLayerPercent(
   viewportRect: DOMRectReadOnly | DOMRect,

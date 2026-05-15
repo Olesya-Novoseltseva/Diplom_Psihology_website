@@ -97,10 +97,11 @@ export class ApiClient {
     return this.parse<T>(res);
   }
 
-  async getJson<T>(path: string): Promise<T> {
+  async getJson<T>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "GET",
       headers: this.buildHeaders(),
+      signal: init?.signal,
     });
     return this.parse<T>(res);
   }

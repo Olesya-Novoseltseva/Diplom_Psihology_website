@@ -10,6 +10,8 @@ const envSchema = z
     DATABASE_URL: z.string().min(1),
     JWT_SECRET: z.string().min(32, "JWT_SECRET должен быть не короче 32 символов"),
     CORS_ORIGIN: z.string().url().default("http://localhost:5173"),
+    /** true / 1 — reflect `Origin` header (tunnel demo URLs like *.trycloudflare.com). Keeps credentials + dynamic origin. */
+    CORS_REFLECT_REQUEST_ORIGIN: z.string().optional(),
 
     SENTIMENT_PROVIDER: z.enum(["heuristic", "openai"]).default("heuristic"),
     SENTIMENT_OPENAI_BASE_URL: z.string().url().optional(),
@@ -58,6 +60,12 @@ export type AppEnv = z.infer<typeof envSchema>;
 /** Включает `response_format: { type: "json_object" }` для дневника (удобно для vLLM + Instruct). */
 export function sentimentOpenAiJsonModeEnabled(env: AppEnv): boolean {
   const v = env.SENTIMENT_OPENAI_JSON_MODE?.trim().toLowerCase();
+  return v === "true" || v === "1";
+}
+
+/** Cross-origin previews through reverse tunnels (Cloudflare/ngrok URLs change every run unless named). */
+export function corsReflectRequestOrigin(env: AppEnv): boolean {
+  const v = env.CORS_REFLECT_REQUEST_ORIGIN?.trim().toLowerCase();
   return v === "true" || v === "1";
 }
 

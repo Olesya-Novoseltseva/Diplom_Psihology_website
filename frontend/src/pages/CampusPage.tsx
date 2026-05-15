@@ -82,7 +82,7 @@ export function CampusPage() {
     };
   }, [buildingId, category]);
 
-  const activeMarkers = useMemo(() => markers.filter((m) => m.isActive !== false), [markers]);
+  const activeMarkers = useMemo(() => markers.filter((m) => m.isActive === true), [markers]);
 
   return (
     <div className="card">
@@ -94,7 +94,10 @@ export function CampusPage() {
       </div>
 
       <p className="muted" style={{ marginTop: 0 }}>
-        Статичный план кампуса с полезными точками. Фильтры скрывают ненужные категории, а по клику открывается карточка локации.
+        Статичный план кампуса с полезными точками. Фильтры скрывают ненужные категории, а по клику открывается карточка
+        локации. Масштаб: <strong>Ctrl + колёсико мыши</strong>; при увеличении схему можно сдвигать, удерживая левую кнопку и
+        перетаскивая фон. Карточку точки можно <strong>сдвинуть за полоску сверху</strong> и при необходимости прокрутить
+        текст внутри окна.
       </p>
 
       {err ? <p className="error">{err}</p> : null}

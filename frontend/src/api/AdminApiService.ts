@@ -16,6 +16,29 @@ export type AdminSurveyInput = {
   scoreBands?: unknown[];
   questions: Array<{ text: string; min: number; max: number; reverseScore?: boolean }>;
   isActive?: boolean;
+  sortOrder?: number;
+};
+
+export type AdminSurveyQuestionDto = {
+  id: string;
+  text: string;
+  min: number;
+  max: number;
+  reverseScore: boolean;
+  sortOrder: number;
+};
+
+export type AdminSurveyDto = {
+  id: string;
+  key: string;
+  title: string;
+  description: string;
+  sharedOptionLabels: unknown;
+  scoreBands: unknown;
+  version: number;
+  isActive: boolean;
+  sortOrder: number;
+  questions: AdminSurveyQuestionDto[];
 };
 
 export type UploadKind = "campus" | "selfhelp" | "map";
@@ -34,6 +57,27 @@ export type AdminSelfHelpInput = {
   categories?: string[];
   sections: Array<{ heading: string; paragraphs: string[]; bullets?: string[] }>;
   isActive?: boolean;
+  sortOrder?: number;
+};
+
+export type AdminSelfHelpSectionDto = {
+  id: string;
+  heading: string;
+  paragraphs: unknown;
+  bullets?: unknown;
+  sortOrder: number;
+};
+
+export type AdminSelfHelpTopicDto = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  disclaimer: string;
+  categories: unknown;
+  isActive: boolean;
+  sortOrder: number;
+  sections: AdminSelfHelpSectionDto[];
 };
 
 export class AdminApiService {
@@ -66,19 +110,35 @@ export class AdminApiService {
     });
   }
 
-  surveys(): Promise<{ surveys: unknown[] }> {
-    return this.http.getJson<{ surveys: unknown[] }>("/api/admin/surveys");
+  surveys(): Promise<{ surveys: AdminSurveyDto[] }> {
+    return this.http.getJson<{ surveys: AdminSurveyDto[] }>("/api/admin/surveys");
   }
 
-  createSurvey(input: AdminSurveyInput): Promise<{ survey: unknown }> {
-    return this.http.postJson<{ survey: unknown }>("/api/admin/surveys", input);
+  createSurvey(input: AdminSurveyInput): Promise<{ survey: AdminSurveyDto }> {
+    return this.http.postJson<{ survey: AdminSurveyDto }>("/api/admin/surveys", input);
   }
 
-  selfHelpTopics(): Promise<{ topics: unknown[] }> {
-    return this.http.getJson<{ topics: unknown[] }>("/api/admin/selfhelp/topics");
+  updateSurvey(id: string, input: Partial<AdminSurveyInput>): Promise<{ survey: AdminSurveyDto }> {
+    return this.http.patchJson<{ survey: AdminSurveyDto }>(`/api/admin/surveys/${id}`, input);
   }
 
-  createSelfHelpTopic(input: AdminSelfHelpInput): Promise<{ topic: unknown }> {
-    return this.http.postJson<{ topic: unknown }>("/api/admin/selfhelp/topics", input);
+  deleteSurvey(id: string): Promise<{ survey: AdminSurveyDto }> {
+    return this.http.deleteJson<{ survey: AdminSurveyDto }>(`/api/admin/surveys/${id}`);
+  }
+
+  selfHelpTopics(): Promise<{ topics: AdminSelfHelpTopicDto[] }> {
+    return this.http.getJson<{ topics: AdminSelfHelpTopicDto[] }>("/api/admin/selfhelp/topics");
+  }
+
+  createSelfHelpTopic(input: AdminSelfHelpInput): Promise<{ topic: AdminSelfHelpTopicDto }> {
+    return this.http.postJson<{ topic: AdminSelfHelpTopicDto }>("/api/admin/selfhelp/topics", input);
+  }
+
+  updateSelfHelpTopic(id: string, input: Partial<AdminSelfHelpInput>): Promise<{ topic: AdminSelfHelpTopicDto }> {
+    return this.http.patchJson<{ topic: AdminSelfHelpTopicDto }>(`/api/admin/selfhelp/topics/${id}`, input);
+  }
+
+  deleteSelfHelpTopic(id: string): Promise<{ topic: AdminSelfHelpTopicDto }> {
+    return this.http.deleteJson<{ topic: AdminSelfHelpTopicDto }>(`/api/admin/selfhelp/topics/${id}`);
   }
 }

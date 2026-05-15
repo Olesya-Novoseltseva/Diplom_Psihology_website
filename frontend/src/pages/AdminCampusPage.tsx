@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiClient } from "../api/ApiClient.js";
 import { AdminApiService } from "../api/AdminApiService.js";
@@ -7,7 +7,17 @@ import { StaticCampusMap } from "../campus/StaticCampusMap.js";
 
 const adminApi = new AdminApiService(new ApiClient(""));
 const campusApi = new CampusApiService(new ApiClient(""));
+
 const categories: CampusMarkerCategory[] = ["QUIET", "FOOD", "STUDY", "RELAX", "SERVICE", "OTHER"];
+
+const categoryRu: Record<CampusMarkerCategory, string> = {
+  QUIET: "Тихое место",
+  FOOD: "Еда",
+  STUDY: "Учёба",
+  RELAX: "Отдых",
+  SERVICE: "Сервис",
+  OTHER: "Другое",
+};
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -20,6 +30,192 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error("Ошибка чтения файла"));
     reader.readAsDataURL(file);
   });
+}
+
+function TrashIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" x2="10" y1="11" y2="17" />
+      <line x1="14" x2="14" y1="11" y2="17" />
+    </svg>
+  );
+}
+
+function AdminCampusMarkerPanel(props: {
+  marker: MarkerDto;
+  onClose: () => void;
+  reload: () => Promise<void>;
+  onError: (msg: string) => void;
+}) {
+  const { marker, onClose, reload, onError } = props;
+  const [title, setTitle] = useState(marker.title);
+  const [category, setCategory] = useState(marker.category);
+  const [description, setDescription] = useState(marker.description ?? "");
+  const [floorLabel, setFloorLabel] = useState(marker.floorLabel ?? "");
+  const [roomLabel, setRoomLabel] = useState(marker.roomLabel ?? "");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setTitle(marker.title);
+    setCategory(marker.category);
+    setDescription(marker.description ?? "");
+    setFloorLabel(marker.floorLabel ?? "");
+    setRoomLabel(marker.roomLabel ?? "");
+  }, [marker.id, marker.title, marker.category, marker.description, marker.floorLabel, marker.roomLabel, marker.imageUrl]);
+
+  async function saveMeta(e?: FormEvent) {
+    e?.preventDefault();
+    setBusy(true);
+    try {
+      await adminApi.updateMarker(marker.id, {
+        title: title.trim(),
+        category,
+        description: description.trim() || null,
+        floorLabel: floorLabel.trim() || null,
+        roomLabel: roomLabel.trim() || null,
+      });
+      await reload();
+    } catch {
+      onError("Не удалось сохранить изменения");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onPhoto(ev: ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const { url } = await adminApi.upload({ kind: "campus", filename: file.name, dataUrl });
+      await adminApi.updateMarker(marker.id, { imageUrl: url });
+      await reload();
+    } catch {
+      onError("Не удалось загрузить фото");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearPhoto() {
+    if (!window.confirm("Убрать фото у этой точки?")) return;
+    setBusy(true);
+    try {
+      await adminApi.updateMarker(marker.id, { imageUrl: null });
+      await reload();
+    } catch {
+      onError("Не удалось убрать фото");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeMarker() {
+    if (!window.confirm(`Удалить точку «${marker.title}» со карты? Для посетителей она пропадёт.`)) return;
+    setBusy(true);
+    try {
+      await adminApi.deleteMarker(marker.id);
+      await reload();
+      onClose();
+    } catch {
+      onError("Не удалось удалить точку");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="admin-marker-panel" onSubmit={(ev) => void saveMeta(ev)}>
+      <div className="admin-marker-panel__title" id="campus-admin-pin-title">
+        Редактирование
+      </div>
+      {marker.imageUrl ? <img src={marker.imageUrl} alt="" className="admin-marker-preview" /> : null}
+
+      <label htmlFor={`pin-${marker.id}-title`}>Название</label>
+      <input
+        id={`pin-${marker.id}-title`}
+        className="input"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        required
+        disabled={busy}
+      />
+
+      <label htmlFor={`pin-${marker.id}-cat`}>Категория</label>
+      <select
+        id={`pin-${marker.id}-cat`}
+        className="input"
+        value={category}
+        onChange={(e) => setCategory(e.target.value as CampusMarkerCategory)}
+        disabled={busy}
+      >
+        {categories.map((c) => (
+          <option key={c} value={c}>
+            {categoryRu[c]}
+          </option>
+        ))}
+      </select>
+
+      <label htmlFor={`pin-${marker.id}-desc`}>Описание</label>
+      <textarea
+        id={`pin-${marker.id}-desc`}
+        className="input"
+        rows={4}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Что здесь есть, как воспользоваться…"
+        disabled={busy}
+      />
+
+      <div className="admin-marker-actions" style={{ marginTop: "0.5rem" }}>
+        <span className="muted" style={{ fontSize: "0.82rem", width: "100%" }}>
+          Фото в карточке точки
+        </span>
+        <label className="btn btn--ghost btn--compact" style={{ margin: 0, cursor: busy ? "wait" : "pointer" }}>
+          <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} disabled={busy} onChange={(e) => void onPhoto(e)} />
+          {busy ? "…" : marker.imageUrl ? "Заменить" : "Загрузить"}
+        </label>
+        {marker.imageUrl ? (
+          <button type="button" className="btn btn--ghost btn--compact" disabled={busy} onClick={() => void clearPhoto()}>
+            Убрать фото
+          </button>
+        ) : null}
+      </div>
+
+      <label htmlFor={`pin-${marker.id}-floor`}>Этаж</label>
+      <input
+        id={`pin-${marker.id}-floor`}
+        className="input"
+        value={floorLabel}
+        onChange={(e) => setFloorLabel(e.target.value)}
+        disabled={busy}
+      />
+      <label htmlFor={`pin-${marker.id}-room`}>Помещение</label>
+      <input
+        id={`pin-${marker.id}-room`}
+        className="input"
+        value={roomLabel}
+        onChange={(e) => setRoomLabel(e.target.value)}
+        disabled={busy}
+      />
+
+      <div className="admin-marker-actions">
+        <button className="btn btn--primary" type="submit" disabled={busy}>
+          Сохранить текст и метки
+        </button>
+        <button type="button" className="btn btn--danger btn--compact" disabled={busy} onClick={() => void removeMarker()}>
+          Удалить точку
+        </button>
+      </div>
+      <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.78rem" }}>
+        Положение на схеме меняется перетаскиванием маркера.
+      </p>
+    </form>
+  );
 }
 
 export function AdminCampusPage() {
@@ -37,7 +233,10 @@ export function AdminCampusPage() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const loadMarkers = useCallback(() => adminApi.markers().then((r) => setMarkers(r.markers)), []);
+  const loadMarkers = useCallback(async (): Promise<void> => {
+    const r = await adminApi.markers();
+    setMarkers(r.markers);
+  }, []);
 
   const loadPlan = useCallback(async () => {
     const { imageUrl } = await campusApi.getPlanImage();
@@ -49,7 +248,7 @@ export function AdminCampusPage() {
     void loadPlan().catch(() => undefined);
   }, [loadMarkers, loadPlan]);
 
-  const visibleMarkers = markers.filter((m) => m.isActive !== false);
+  const visibleMarkers = markers.filter((m) => m.isActive === true);
 
   async function uploadPlan(file: File) {
     setErr(null);
@@ -76,6 +275,17 @@ export function AdminCampusPage() {
       await loadMarkers();
     } catch (error) {
       setErr(error instanceof Error ? error.message : "Ошибка сохранения");
+    }
+  }
+
+  async function removeMarkerFromList(m: MarkerDto) {
+    if (!window.confirm(`Удалить точку «${m.title}» со карты? Для посетителей она пропадёт.`)) return;
+    setErr(null);
+    try {
+      await adminApi.deleteMarker(m.id);
+      await loadMarkers();
+    } catch {
+      setErr("Не удалось удалить точку");
     }
   }
 
@@ -125,6 +335,15 @@ export function AdminCampusPage() {
           markers={visibleMarkers}
           planImageUrl={planImageUrl}
           editMode
+          adminPinPanel={(m, dismiss) => (
+            <AdminCampusMarkerPanel
+              key={m.id}
+              marker={m}
+              onClose={dismiss}
+              reload={loadMarkers}
+              onError={(msg) => setErr(msg)}
+            />
+          )}
           onMapClickPct={(px, py) => {
             const rx = Math.round(px * 10) / 10;
             const ry = Math.round(py * 10) / 10;
@@ -147,8 +366,8 @@ export function AdminCampusPage() {
         <label>Категория</label>
         <select className="input" value={category} onChange={(e) => setCategory(e.target.value as CampusMarkerCategory)}>
           {categories.map((c) => (
-            <option key={c}>
-              {c}
+            <option key={c} value={c}>
+              {categoryRu[c]}
             </option>
           ))}
         </select>
@@ -175,10 +394,22 @@ export function AdminCampusPage() {
       <h2 className="section-title">Список точек</h2>
       <ul className="journal-list">
         {markers.map((m) => (
-          <li className="journal-item" key={m.id}>
-            <strong>{m.title}</strong> <span className="muted">{m.category} · x:{m.x} y:{m.y}</span>
-            <button type="button" className="btn btn--ghost" onClick={() => void adminApi.deleteMarker(m.id).then(loadMarkers)}>
-              Скрыть
+          <li className="journal-item admin-marker-list-row" key={m.id}>
+            <div className="admin-marker-list-row__body">
+              <strong>{m.title}</strong>{" "}
+              <span className="muted">
+                {categoryRu[m.category]} · x:{m.x} y:{m.y}
+                {m.isActive === false ? " · скрыта" : ""}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn--icon-only"
+              title="Удалить со карты"
+              aria-label={`Удалить точку ${m.title}`}
+              onClick={() => void removeMarkerFromList(m)}
+            >
+              <TrashIcon />
             </button>
           </li>
         ))}

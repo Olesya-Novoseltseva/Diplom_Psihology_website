@@ -26,7 +26,7 @@ export class AuthApiService {
     return this.http.postJson<AuthPayload>("/api/auth/login", { email, password });
   }
 
-  me(): Promise<{ user: PublicUserDto }> {
-    return this.http.getJson<{ user: PublicUserDto }>("/api/auth/me");
+  me(signal?: AbortSignal): Promise<{ user: PublicUserDto }> {
+    return this.http.getJson<{ user: PublicUserDto }>("/api/auth/me", { signal });
   }
 }

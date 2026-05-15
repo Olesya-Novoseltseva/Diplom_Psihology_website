@@ -9,7 +9,7 @@ import type { SelfHelpService } from "../application/services/SelfHelpService.js
 import type { AdminService } from "../application/services/AdminService.js";
 import type { ITokenService } from "../domain/services/ITokenService.js";
 import type { ILogger } from "../infrastructure/logging/ILogger.js";
-import type { AppEnv } from "../config/env.js";
+import { corsReflectRequestOrigin, type AppEnv } from "../config/env.js";
 import { AuthController } from "../presentation/http/controllers/AuthController.js";
 import { JournalController } from "../presentation/http/controllers/JournalController.js";
 import { SurveyController } from "../presentation/http/controllers/SurveyController.js";
@@ -52,10 +52,11 @@ export function createHttpApp(deps: HttpAppDependencies) {
   const adminController = new AdminController(deps.adminService);
 
   app.use(
-    cors({
-      origin: deps.env.CORS_ORIGIN,
-      credentials: true,
-    }),
+    cors(
+      corsReflectRequestOrigin(deps.env)
+        ? { origin: true, credentials: true }
+        : { origin: deps.env.CORS_ORIGIN, credentials: true },
+    ),
   );
   app.use("/uploads", express.static("uploads"));
   app.use(express.json());
